@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AppTest\Handler;
 
 use App\Handler\HomePageHandler;
+use App\Service\Database;
 use Laminas\Diactoros\Response\HtmlResponse;
 use Laminas\Diactoros\Response\JsonResponse;
 use Mezzio\Router\RouterInterface;
@@ -25,44 +26,42 @@ class HomePageHandlerTest extends TestCase
     /** @var ContainerInterface|ObjectProphecy */
     protected $container;
 
-    /** @var RouterInterface|ObjectProphecy */
-    protected $router;
-
     protected function setUp(): void
     {
         $this->container = $this->prophesize(ContainerInterface::class);
-        $this->router    = $this->prophesize(RouterInterface::class);
-    }
-
-    public function testReturnsJsonResponseWhenNoTemplateRendererProvided()
-    {
-        $homePage = new HomePageHandler(
-            get_class($this->container->reveal()),
-            $this->router->reveal(),
-            null
-        );
-        $response = $homePage->handle(
-            $this->prophesize(ServerRequestInterface::class)->reveal()
-        );
-
-        self::assertInstanceOf(JsonResponse::class, $response);
     }
 
     public function testReturnsHtmlResponseWhenTemplateRendererProvided()
     {
+        /** @var TemplateRendererInterface|ObjectProphecy $renderer */
         $renderer = $this->prophesize(TemplateRendererInterface::class);
         $renderer
             ->render('app::home-page', Argument::type('array'))
             ->willReturn('');
 
+        $measurements = [
+            [
+                'date_time' => '30-12-2010 12:10',
+                'temp' => 12.04
+            ],
+        ];
+
+
+        /** @var Database|ObjectProphecy */
+        $database = $this->prophesize(Database::class);
+        $database
+            ->fetchAll()
+            ->willReturn($measurements);
+
         $homePage = new HomePageHandler(
-            get_class($this->container->reveal()),
-            $this->router->reveal(),
-            $renderer->reveal()
+            $renderer->reveal(),
+            $database->reveal()
         );
 
+        /** @var ServerRequestInterface|ObjectProphecy $request */
+        $request = $this->prophesize(ServerRequestInterface::class);
         $response = $homePage->handle(
-            $this->prophesize(ServerRequestInterface::class)->reveal()
+            $request->reveal()
         );
 
         self::assertInstanceOf(HtmlResponse::class, $response);
